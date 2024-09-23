@@ -8,7 +8,7 @@ Demonstrates passing data as a String between Swift and JavaScript.
 
 Builds off of the [example from the SwiftWasm book](http://book.swiftwasm.org/examples/exporting-function.html) that shows passing Integer types.
 
-See [here](./poc-hello-world-interoperable/README.md) for details.
+See [here](./demo-swift-string-parameters/README.md) for details.
 
 ## Tokamak SwiftUI on the Web
 
@@ -18,3 +18,4 @@ The web app runs as a self-contained wasm that provides the entire user interfac
 
 Refer to the [Tokamak repo](https://github.com/TokamakUI/Tokamak) for details.
 
+See [here](./demo-tokamak-web-app/README.md) for details.
