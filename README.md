@@ -1,6 +1,6 @@
 # Swift on the Web
 
-This repository shows a few examples
+This repository shows a few examples of how to use Swift on the Web.
 
 ## String-based Swift-JS API's
 
