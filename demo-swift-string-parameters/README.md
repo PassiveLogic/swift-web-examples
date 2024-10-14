@@ -1,4 +1,4 @@
-# SwiftWasm Interoperable Hello World POC
+# SwiftWasm Swift to JavaScript String Interoperation Example
 
 ## Description
 
