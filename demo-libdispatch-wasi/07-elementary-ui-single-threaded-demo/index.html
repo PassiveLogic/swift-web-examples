@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Single-threaded Demo</title>
+  <style>
+    :root {
+      --bg: #f4f6f9; --surface: #fff; --ink: #142030; --muted: #5a6778; --rule: #d6dce5;
+      --main: #2348c4; --root: #0f7f73; --timer: #b36b00; --idle: #7a8596; --wait: #7b3fb5;
+      --main-soft: #e3e9fb; --root-soft: #ddf1ee; --timer-soft: #f8ecd9; --idle-soft: #e9ecf1; --wait-soft: #efe5f8;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e141c; --surface: #151d28; --ink: #e4e9f1; --muted: #98a4b5; --rule: #273244;
+        --main: #7b9cff; --root: #3fc2b0; --timer: #e8a440; --idle: #8995a8; --wait: #c49bf0;
+        --main-soft: #1c2a4d; --root-soft: #12322e; --timer-soft: #392a12; --idle-soft: #1f2733; --wait-soft: #2c1e3d;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+    .page { max-width: 1000px; margin: 0 auto; padding: 24px 16px 64px; }
+    h1 { margin: 0 0 8px; }
+    h2 { margin: 24px 0 8px; font-size: 1rem; }
+    h3 { margin: 16px 0 8px; font-size: 0.9rem; }
+    .panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 4px 14px 12px; margin-top: 16px; }
+    .panel h2 { margin-top: 10px; }
+    .hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 8px; }
+    .separator { color: var(--rule); }
+    .lede { color: var(--muted); max-width: 68ch; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    button { font: 500 0.85rem ui-monospace, monospace; padding: 6px 10px; border-radius: 8px;
+             border: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; }
+    button.primary { background: var(--main); border-color: var(--main); color: var(--surface); font-weight: 700; }
+    .status { font: 0.85rem ui-monospace, monospace; color: var(--muted); }
+    .board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    @media (max-width: 720px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .column { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; min-height: 120px; }
+    .column h3 { margin: 0 0 6px; font: 600 0.75rem ui-monospace, monospace; color: var(--muted); }
+    .chip { font: 0.75rem ui-monospace, monospace; padding: 3px 6px; margin-bottom: 4px; border-radius: 5px;
+            border: 1px solid var(--rule); border-left-width: 3px; overflow-wrap: anywhere; }
+    .chip.main { border-left-color: var(--main); } .chip.root { border-left-color: var(--root); }
+    .chip.timer { border-left-color: var(--timer); }
+    .lane { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; min-height: 80px; }
+    .tick { flex: 0 0 auto; width: 120px; border-radius: 6px; padding: 6px; display: grid; gap: 2px;
+            align-content: start; font: 0.7rem/1.3 ui-monospace, monospace; }
+    .tick b { text-transform: uppercase; letter-spacing: 0.04em; }
+    .tick .number { color: var(--muted); }
+    .tick.main { background: var(--main-soft); color: var(--main); }
+    .tick.root { background: var(--root-soft); color: var(--root); }
+    .tick.internal { background: var(--timer-soft); color: var(--timer); }
+    .tick.idle { background: var(--idle-soft); color: var(--idle); }
+    .tick.wait { background: var(--wait-soft); color: var(--wait); }
+    .empty { color: var(--muted); }
+  </style>
+  <script type="module">
+    import { init } from "./.build/plugins/PackageToJS/outputs/Package/index.js";
+    init();
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>
