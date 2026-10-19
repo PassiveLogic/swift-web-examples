@@ -21,7 +21,7 @@ Things to try:
 - Queue a repeating main block and a repeating utility block. The main queue and the root queues take turns, so neither one keeps the thread.
 - Queue blocks at all three QoS levels. The root queues run from the highest QoS down.
 - Queue a main block and a default block, then press **Top-level wait**. The wait runs the default block and the signal, but the main block stays pending. A wait never runs main-queue work.
-- Queue an `asyncAfter` timer. The next step is a manager step that arms the timer. When the timer is due, a timer step fires it, and a later step runs its block.
+- Queue an `asyncAfter` timer. The next two steps are manager steps. The first one takes the timer registration, and the second one arms the timer. Then **Next timer** shows the delay. When the timer is due, a timer step fires it, and a later step runs its block.
 
 ## The code
 
