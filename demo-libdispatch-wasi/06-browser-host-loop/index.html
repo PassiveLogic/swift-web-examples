@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dispatch host loop</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+    button { font: inherit; padding: 0.4rem 0.8rem; margin-right: 0.5rem; }
+    #clock { font-variant-numeric: tabular-nums; }
+    li { font-family: ui-monospace, monospace; font-size: 0.9rem; }
+  </style>
+  <script type="module">
+    import { init } from "./.build/plugins/PackageToJS/outputs/Package/index.js";
+    init();
+  </script>
+</head>
+<body>
+  <h1>Dispatch in the browser</h1>
+  <p>libdispatch runs on the one wasm thread. The browser event loop drives it
+     through the host event loop SPI. Clock: <span id="clock">0 s</span></p>
+  <p>
+    <button id="swift-work">Queue Swift work</button>
+    <button id="c-work">Queue C work</button>
+  </p>
+  <ol id="log"></ol>
+</body>
+</html>

@@ -19,3 +19,9 @@ The web app runs as a self-contained wasm that provides the entire user interfac
 Refer to the [Tokamak repo](https://github.com/TokamakUI/Tokamak) for details.
 
 See [here](./demo-tokamak-web-app/README.md) for details.
+
+## libdispatch on WASI
+
+Seven examples of libdispatch (Grand Central Dispatch) on WebAssembly, from a short C program to an all-Swift web app. The command line examples run with WasmKit or wasmtime. The browser examples drive Dispatch from the browser event loop, and one of them uses ElementaryUI.
+
+See [here](./demo-libdispatch-wasi/README.md) for details.
