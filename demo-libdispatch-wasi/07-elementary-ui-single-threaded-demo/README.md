@@ -1,10 +1,10 @@
 # 07: Single-threaded Demo (ElementaryUI)
 
-A full-stack Swift web app. It is built with [ElementaryUI](https://github.com/elementary-swift/elementary-ui) and runs the real libdispatch for WASI. The page runs one Dispatch drain step at a time, so you can see how the one thread shares its time between queues.
+An all-Swift web app that runs in the browser. It is built with [ElementaryUI](https://github.com/elementary-swift/elementary-ui) and runs the real libdispatch for WASI. The page runs one Dispatch drain step at a time, so you can see how the one thread shares its time between queues.
 
 ```
 ./build.sh           # build libdispatch with the Swift overlay, then this package
-./build.sh --serve   # also serve the page on http://localhost:8080
+./build.sh --serve   # also serve the page on http://localhost:8080 (this machine only)
 ```
 
 Open http://localhost:8080 in a browser.

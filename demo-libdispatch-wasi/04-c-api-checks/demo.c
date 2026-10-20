@@ -2,7 +2,7 @@
 //
 // Each check prints one line that starts with "PASS [name]" or "FAIL [name]".
 // The last line is a summary. The program exits with 0 only if every check
-// passes. demo.command looks for each PASS line in the output.
+// passes. run.sh checks for the summary line, exit status 0, and no FAIL line.
 //
 // One rule explains most of this file. WASI gives the program one thread.
 // So dispatch_async never runs a block before it returns. Queued work runs

@@ -142,7 +142,7 @@ find_wasmkit() {
   if [ -n "$WASMKIT" ]; then
     command -v "$WASMKIT" >/dev/null || fail "WASMKIT is not a program: $WASMKIT"
     WASMKIT="$(command -v "$WASMKIT")"
-    WASMKIT_VERSION="$(wasmkit_version "$WASMKIT")"
+    WASMKIT_VERSION="$(wasmkit_version "$WASMKIT" || true)"
   else
     local -a candidates=()
     if command -v wasmkit >/dev/null; then
@@ -155,7 +155,7 @@ find_wasmkit() {
     done
     for candidate in "${candidates[@]}"; do
       [ -x "$candidate" ] || continue
-      version="$(wasmkit_version "$candidate")"
+      version="$(wasmkit_version "$candidate" || true)"
       [ -n "$version" ] || continue
       if [ -z "$first" ]; then
         first="$candidate"
@@ -267,8 +267,9 @@ check_prerequisites() {
   mkdir -p "$BUILD_ROOT"
 }
 
-# Build and install libdispatch once per source tree. A later run only lets
-# ninja check that nothing changed.
+# Configure, build, and install libdispatch. The first run compiles the
+# library. A later run configures again, but ninja compiles only what
+# changed. Then the stage folder is installed again.
 #   $1  c or swift
 ensure_libdispatch() {
   if [ "$1" = swift ]; then build_libdispatch swift YES; else build_libdispatch c NO; fi
@@ -335,13 +336,47 @@ run_example() {
     local status=0 start
     start="$(now)"
     "${cmd[@]}" >"$log" 2>&1 || status=$?
-    grep -v 'not implemented yet' "$log" | sed 's/^/    | /'
+    # WasmKit 0.1.6 prints '"poll_oneoff" not implemented yet' for each
+    # sleep, sometimes in the middle of a program line. Remove that text.
+    local output="$log.clean"
+    sed 's/"poll_oneoff" not implemented yet//g' "$log" | grep -v '^[[:space:]]*$' >"$output" || true
+    sed 's/^/    | /' "$output"
     echo "    (run took $(since "$start") s, exit status $status)"
     [ "$status" -eq 0 ] || fail "$runtime: exit status $status. Log: $log"
-    ! grep -q 'FAIL' "$log" || fail "$runtime: the output has a FAIL line. Log: $log"
-    grep -qF "$expected" "$log" || fail "$runtime: missing the line \"$expected\". Log: $log"
+    ! grep -q 'FAIL' "$output" || fail "$runtime: the output has a FAIL line. Log: $log"
+    grep -qxF "$expected" "$output" || fail "$runtime: missing the line \"$expected\". Log: $log"
     echo "    OK"
   done
+}
+
+# Build a browser example with the PackageToJS plugin of JavaScriptKit.
+#   $1  the example folder
+#   rest: --serve to also serve the folder on http://localhost:8080 (on this
+#         machine only), --clean to delete the build folders first
+build_browser_example() {
+  local dir="$1"
+  shift
+  local serve=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      --serve) serve=1 ;;
+      --clean) rm -rf "$BUILD_ROOT" "$dir/.build" ;;
+      *) echo "Usage: $0 [--serve] [--clean]" >&2; exit 2 ;;
+    esac
+  done
+  check_prerequisites swift
+  ensure_libdispatch swift
+
+  cd "$dir"
+  step "Build ${dir#"$EXAMPLES_DIR"/} for the browser"
+  # Package.swift reads this variable to find the Dispatch module.
+  export LIBDISPATCH_SWIFT_LIBS="$SWIFT_LIBS"
+  timed build "$SWIFT" package --swift-sdk "$SWIFT_SDK_ID" js --use-cdn
+
+  if [ "$serve" = 1 ]; then
+    step "Serve on http://localhost:8080"
+    python3 -m http.server 8080 --bind 127.0.0.1
+  fi
 }
 
 # Parse the options that every command line example takes.

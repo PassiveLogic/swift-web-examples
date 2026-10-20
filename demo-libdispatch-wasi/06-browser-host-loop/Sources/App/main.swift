@@ -8,7 +8,9 @@ HostLoop.install()
 let document = JSObject.global.document
 let log = document.getElementById("log")
 
-/// Add a line to the log on the page. Call it only on the main queue.
+/// Add a line to the log on the page. Call it from the main queue or from
+/// browser code, never from a global-queue block. On WASI, a global-queue
+/// block runs as a worker, so the precondition stops the program there.
 func show(_ text: String) {
     dispatchPrecondition(condition: .onQueue(.main))
     let item = document.createElement("li")

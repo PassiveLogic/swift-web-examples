@@ -4,7 +4,7 @@ A web page in Swift that uses Dispatch. A page cannot call `dispatchMain()`, bec
 
 ```
 ./build.sh           # build libdispatch with the Swift overlay, then this package
-./build.sh --serve   # also serve the page on http://localhost:8080
+./build.sh --serve   # also serve the page on http://localhost:8080 (this machine only)
 ```
 
 Open http://localhost:8080 in a browser. The page shows a clock that a `DispatchSourceTimer` updates, and a log of the work that ran. The buttons queue more work.
@@ -16,6 +16,7 @@ Open http://localhost:8080 in a browser. The page shows a clock that a `Dispatch
   2. The browser task calls `_dispatch_wasi_event_loop_perform()`. Dispatch runs up to 64 drain steps.
   3. After each perform call, the host asks for the next timer delay with `_dispatch_wasi_event_loop_next_timer_delay()`. It keeps one browser timeout for it.
 - [main.swift](./Sources/App/main.swift) is the page. It uses `DispatchQueue`, `DispatchGroup`, `asyncAfter`, and a timer source.
+- The browser timeout uses one reusable callback. A cancelled timeout never runs its callback, so a one-shot callback would never be freed.
 - [CDispatchHost](./Sources/CDispatchHost) is a C target. Its header declares the three SPI functions, because libdispatch does not install a header for private SPI. [primes.c](./Sources/CDispatchHost/primes.c) queues work with the C API: it counts primes on a global queue with `dispatch_async_f`, then reports on the main queue.
 
 ## How it builds

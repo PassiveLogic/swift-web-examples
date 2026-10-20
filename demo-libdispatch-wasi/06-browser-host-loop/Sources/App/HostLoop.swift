@@ -19,6 +19,15 @@ enum HostLoop {
 
     private static var timeoutID: JSValue = .undefined
 
+    /// The callback for every timer wake. It is one reusable closure, because
+    /// a cancelled timeout never runs its callback, so a one-shot closure for
+    /// it would never be released.
+    private static let timerWake = JSClosure { _ in
+        // A timer wake does not consume the scheduled turn.
+        HostLoop.turn(consumesScheduledTurn: false)
+        return .undefined
+    }
+
     static func install() {
         // The scheduler is a C function pointer, so it cannot capture state.
         _dispatch_wasi_event_loop_set_scheduler({ _ in
@@ -42,12 +51,11 @@ enum HostLoop {
         timeoutID = .undefined
         let delay = _dispatch_wasi_event_loop_next_timer_delay()
         guard delay >= 0 else { return }  // -1: no timer is armed
-        let milliseconds = Double(delay) / 1_000_000
-        timeoutID = JSObject.global.setTimeout!(JSOneshotClosure { _ in
-            // A timer wake does not consume the scheduled turn.
-            HostLoop.turn(consumesScheduledTurn: false)
-            return .undefined
-        }, milliseconds)
+        // Browsers fire a timeout at once when its delay does not fit in a
+        // 32-bit signed integer (about 24.8 days). Wake at that limit instead,
+        // and the next rearm waits again.
+        let milliseconds = min(Double(delay) / 1_000_000, 2_147_483_647)
+        timeoutID = JSObject.global.setTimeout!(timerWake, milliseconds)
     }
 
     private static func queueBrowserTask(_ body: @escaping () -> Void) {

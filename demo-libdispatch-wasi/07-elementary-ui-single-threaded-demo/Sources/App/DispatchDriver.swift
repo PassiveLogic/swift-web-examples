@@ -56,9 +56,15 @@ final class DispatchDriver {
     var autoRun = false
 
     private var nextID = 1
+    private var nextStepNumber = 1
     private var ranInThisStep: [String] = []
     private var autoTimer: JSValue = .undefined
-    private var autoClosure: JSClosure?
+    /// The interval callback for Auto step. One closure serves every start
+    /// and stop, so stopping does not leave a closure behind.
+    private let autoStep = JSClosure { _ in
+        driver.step()
+        return .undefined
+    }
 
     // MARK: Queue work
 
@@ -79,7 +85,7 @@ final class DispatchDriver {
 
     /// Queue a block that runs after one second.
     func enqueueAfterOneSecond() {
-        let label = "after 1 s #\(nextID)"
+        let label = "after 1 s #\(takeID())"
         timers.append(label)
         Lane.standard.queue.asyncAfter(deadline: .now() + .seconds(1)) {
             self.timers.removeAll { $0 == label }
@@ -118,12 +124,16 @@ final class DispatchDriver {
     func step() {
         ranInThisStep = []
         let consumes = turnRequested
-        let timerDue = _dispatch_wasi_event_loop_next_timer_delay() == 0
+        let timerBefore = _dispatch_wasi_event_loop_next_timer_delay()
         // Clear the flag first. If work remains, Dispatch asks for the next
         // turn during perform(), and the scheduler sets the flag again.
         turnRequested = false
         _ = _dispatch_wasi_event_loop_perform(1, consumes)
-        record(kind: classify(ran: ranInThisStep, hadWork: consumes || timerDue))
+        // A timer fired in this step if the next timer is now gone or later.
+        // Time passes, so a timer that did not fire is always nearer.
+        let timerAfter = _dispatch_wasi_event_loop_next_timer_delay()
+        let timerFired = timerBefore >= 0 && (timerAfter < 0 || timerAfter > timerBefore)
+        record(kind: classify(ran: ranInThisStep, hadWork: consumes || timerFired))
         refreshNextTimer()
     }
 
@@ -142,20 +152,16 @@ final class DispatchDriver {
     func toggleAutoRun() {
         autoRun.toggle()
         if autoRun {
-            let closure = JSClosure { _ in
-                driver.step()
-                return .undefined
-            }
-            autoClosure = closure
-            autoTimer = JSObject.global.setInterval!(closure, 300)
+            autoTimer = JSObject.global.setInterval!(autoStep, 300)
         } else {
             _ = JSObject.global.clearInterval!(autoTimer)
-            autoClosure = nil
+            autoTimer = .undefined
         }
     }
 
     func clearSteps() {
         steps = []
+        nextStepNumber = 1
     }
 
     // MARK: Records
@@ -174,8 +180,9 @@ final class DispatchDriver {
         case .idle: title = "no work"
         case .wait: title = "top-level wait"
         }
-        steps.append(StepRecord(number: steps.count + 1, kind: kind,
+        steps.append(StepRecord(number: nextStepNumber, kind: kind,
                                 title: title, ran: ranInThisStep))
+        nextStepNumber += 1
         if steps.count > 60 { steps.removeFirst(steps.count - 60) }
     }
 

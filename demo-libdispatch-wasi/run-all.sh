@@ -9,7 +9,7 @@ args=()
 for arg in "$@"; do
   case "$arg" in
     --wasmtime) args+=(--wasmtime) ;;
-    --clean) rm -rf .build ;;
+    --clean) rm -rf .build 06-browser-host-loop/.build 07-elementary-ui-single-threaded-demo/.build ;;
     *) echo "Usage: $0 [--wasmtime] [--clean]" >&2; exit 2 ;;
   esac
 done

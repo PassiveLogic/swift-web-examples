@@ -6,7 +6,8 @@
 
 // The host event loop SPI of libdispatch for single-threaded WASI. It is
 // private, so libdispatch does not install a header for it. These are the
-// same declarations as in private/private.h of libdispatch.
+// same declarations as in private/private.h of libdispatch. Each browser
+// example has its own copy, so each example builds on its own.
 //
 // Dispatch calls the scheduler when it records new work. The scheduler must
 // arrange a later call to _dispatch_wasi_event_loop_perform() and return
