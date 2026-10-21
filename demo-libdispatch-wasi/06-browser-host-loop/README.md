@@ -4,10 +4,10 @@ A web page in Swift that uses Dispatch. A page cannot call `dispatchMain()`, bec
 
 ```
 ./build.sh           # build libdispatch with the Swift overlay, then this package
-./build.sh --serve   # also serve the page on http://localhost:8080 (this machine only)
+./build.sh --serve   # also serve the page on http://127.0.0.1:8080 (this machine only)
 ```
 
-Open http://localhost:8080 in a browser. The page shows a clock that a `DispatchSourceTimer` updates, and a log of the work that ran. The buttons queue more work.
+Open http://127.0.0.1:8080 in a browser. The page shows a clock that a `DispatchSourceTimer` updates, and a log of the work that ran. The buttons queue more work.
 
 ## The code
 

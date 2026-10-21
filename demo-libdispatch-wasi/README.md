@@ -19,42 +19,54 @@ These examples use libdispatch (Grand Central Dispatch) on WebAssembly, for the 
 - The matching Swift SDK for WASI (`swift-6.3.1-RELEASE_wasm`). Install it with `swift sdk install`.
 - CMake 3.31 or newer. This is the first CMake that knows `CMAKE_SYSTEM_NAME=WASI`.
 - Ninja.
-- A [libdispatch](https://github.com/swiftlang/swift-corelibs-libdispatch) source tree that has the cooperative WASI backend (`src/event/event_wasi.c`). The Swift examples also need the Swift overlay support for WASI in that tree. Set `LIBDISPATCH_SRC` to the tree.
+- Git, and network access on the first run. The scripts download a [libdispatch](https://github.com/swiftlang/swift-corelibs-libdispatch) tree with the WASI port into `.build/libdispatch-src`, and update it on each run. Upstream libdispatch does not have the WASI port yet, so the default is the branch that holds the full port. See `LIBDISPATCH_GIT_URL` and `LIBDISPATCH_GIT_REF` below. To use your own tree, set `LIBDISPATCH_SRC`. It must have the cooperative WASI backend (`src/event/event_wasi.c`), and the Swift examples also need its Swift overlay support for WASI.
 - For examples 01 to 05: WasmKit 0.3.0 or newer. See [WasmKit versions](#wasmkit-versions). wasmtime is optional.
 - For examples 06 and 07: Python 3 for a local web server, and a browser. The first build downloads Swift packages from GitHub, and the page loads a WASI shim from a CDN.
 
 ## Getting started
 
-Run all the examples:
+Walk through the examples one at a time:
 
 ```
-export LIBDISPATCH_SRC=/path/to/swift-corelibs-libdispatch
 ./run-all.sh
 ```
 
+First the script checks the tools, downloads or updates libdispatch, and builds it. Then it shows each example and waits for you. Press Enter to run the example, `s` to skip it, or `q` to quit. The script builds a browser example and serves it on http://127.0.0.1:8080 until you press Enter.
+
+Run every example without pausing, for example as a smoke test:
+
+```
+./run-all.sh --no-pause --wasmtime
+```
+
+The script prints a summary. If an example fails, it exits with a non-zero status. Without a terminal, the script does not pause.
+
 Or run one example from its folder, for example `./01-c-hello/run.sh`. Options:
 
-- The command line examples take `--wasmtime` to also run with wasmtime.
-- The browser examples take `--serve` to start a web server on http://localhost:8080. It accepts connections from this machine only.
+- `run-all.sh` and the command line examples take `--wasmtime` to also run with wasmtime.
+- The browser examples take `--serve` to start a web server on http://127.0.0.1:8080. It accepts connections from this machine only.
 - Every script takes `--clean` to delete the shared build folder first. In `run-all.sh` and the browser examples, `--clean` also deletes the package build folders of the browser examples.
 
-These environment variables have defaults. Set them only to use other tools.
+These environment variables have defaults. Set them only to use other tools or another libdispatch tree.
 
 | Variable | Default |
 |---|---|
+| `LIBDISPATCH_SRC` | the copy that the scripts download into `.build/libdispatch-src` |
+| `LIBDISPATCH_GIT_URL` | `https://github.com/PassiveLogic/swift-corelibs-libdispatch.git` |
+| `LIBDISPATCH_GIT_REF` | `feat/scottm/libDispatchWasmV2`, the branch with the full WASI port |
 | `SWIFT_TOOLCHAIN` | `~/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain` |
 | `SWIFT_SDK_ID` | `swift-6.3.1-RELEASE_wasm` |
 | `WASM_SDK` | the `wasm32-unknown-wasip1` folder of that Swift SDK |
-
-`SWIFT_SDK_ID` and `WASM_SDK` must name the same Swift SDK. libdispatch builds against `WASM_SDK`, and the browser examples build with `SWIFT_SDK_ID`. If you set one, set the other to match.
 | `WASMKIT` | the first WasmKit 0.3.0 or newer that the scripts find |
 | `WASMTIME` | `wasmtime` on `PATH` |
+
+`SWIFT_SDK_ID` and `WASM_SDK` must name the same Swift SDK. libdispatch builds against `WASM_SDK`, and the browser examples build with `SWIFT_SDK_ID`. If you set one, set the other to match.
 
 ## How the examples build
 
 All examples share [common.sh](./common.sh) and one build folder, `.build`. Git ignores it.
 
-1. Each example builds libdispatch from `LIBDISPATCH_SRC` and installs it into a stage folder. There are two kinds of build:
+1. Each example builds libdispatch and installs it into a stage folder. The source is `LIBDISPATCH_SRC`, or the downloaded copy in `.build/libdispatch-src`. `--clean` deletes that copy too, so the next run downloads it again. There are two kinds of build:
    - `.build/stage-c` holds the C library only. The C examples use it.
    - `.build/stage-swift` holds the C library and the Swift overlay. The Swift and browser examples use it.
 

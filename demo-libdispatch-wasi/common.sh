@@ -1,10 +1,15 @@
 # Shared settings and helpers for the libdispatch on WASI examples.
 # Each example script sources this file. It does not run anything itself.
 #
-# Environment variables (all optional except LIBDISPATCH_SRC):
+# Environment variables (all optional):
 #
-#   LIBDISPATCH_SRC  A libdispatch source tree with the cooperative WASI
-#                    backend (src/event/event_wasi.c).
+#   LIBDISPATCH_SRC  A local libdispatch source tree with the cooperative WASI
+#                    backend (src/event/event_wasi.c). If you do not set it,
+#                    the scripts download LIBDISPATCH_GIT_REF of
+#                    LIBDISPATCH_GIT_URL into .build/libdispatch-src, and
+#                    update that copy on each run.
+#   LIBDISPATCH_GIT_URL  The libdispatch repository to download.
+#   LIBDISPATCH_GIT_REF  The branch or tag to download.
 #   SWIFT_TOOLCHAIN  Host Swift toolchain (.xctoolchain).
 #   WASM_SDK         The wasm32-unknown-wasip1 folder of a Swift SDK for WASI.
 #   WASMKIT          The WasmKit command line tool. If you do not set it, the
@@ -15,6 +20,10 @@ SWIFT_TOOLCHAIN="${SWIFT_TOOLCHAIN:-$HOME/Library/Developer/Toolchains/swift-6.3
 SWIFT_SDK_ID="${SWIFT_SDK_ID:-swift-6.3.1-RELEASE_wasm}"
 WASM_SDK="${WASM_SDK:-$HOME/Library/org.swift.swiftpm/swift-sdks/$SWIFT_SDK_ID.artifactbundle/$SWIFT_SDK_ID/wasm32-unknown-wasip1}"
 LIBDISPATCH_SRC="${LIBDISPATCH_SRC:-}"
+# Upstream libdispatch does not have the WASI port yet. Until it does, the
+# default is the branch that holds the full port, with the Swift overlay.
+LIBDISPATCH_GIT_URL="${LIBDISPATCH_GIT_URL:-https://github.com/PassiveLogic/swift-corelibs-libdispatch.git}"
+LIBDISPATCH_GIT_REF="${LIBDISPATCH_GIT_REF:-feat/scottm/libDispatchWasmV2}"
 WASMKIT="${WASMKIT:-}"
 WASMTIME="${WASMTIME:-$(command -v wasmtime || echo wasmtime)}"
 
@@ -253,8 +262,7 @@ check_prerequisites() {
   need_path "$CLANG" "Install a Swift toolchain, or set SWIFT_TOOLCHAIN to one."
   need_path "$SYSROOT" "Install the Swift SDK for WASI, or set WASM_SDK to its wasm32-unknown-wasip1 folder."
   need_path "$BUILTINS" "WASM_SDK does not hold the compiler-rt builtins for wasip1."
-  [ -n "$LIBDISPATCH_SRC" ] || fail "Set LIBDISPATCH_SRC to a libdispatch source tree with the
-       cooperative WASI backend (src/event/event_wasi.c)."
+  [ -n "$LIBDISPATCH_SRC" ] || fetch_libdispatch
   LIBDISPATCH_SRC="$(absolute_dir "$LIBDISPATCH_SRC")"
   need_path "$LIBDISPATCH_SRC/src/event/event_wasi.c" \
     "LIBDISPATCH_SRC has no cooperative WASI backend (src/event/event_wasi.c)."
@@ -265,6 +273,32 @@ check_prerequisites() {
       fail "LIBDISPATCH_SRC has no Swift overlay support for WASI."
   fi
   mkdir -p "$BUILD_ROOT"
+}
+
+# Download the default libdispatch tree, or update it to the latest commit of
+# LIBDISPATCH_GIT_REF. Then use it as LIBDISPATCH_SRC. If the update fails,
+# for example with no network, use the copy that is already there.
+fetch_libdispatch() {
+  local dir="$BUILD_ROOT/libdispatch-src"
+  command -v git >/dev/null || fail "git is not on PATH. Install git, or set LIBDISPATCH_SRC."
+  mkdir -p "$BUILD_ROOT"
+  if [ -d "$dir/.git" ] &&
+     [ "$(git -C "$dir" remote get-url origin 2>/dev/null)" = "$LIBDISPATCH_GIT_URL" ]; then
+    step "Update libdispatch ($LIBDISPATCH_GIT_REF)"
+    if git -C "$dir" fetch --quiet --depth 1 origin "$LIBDISPATCH_GIT_REF"; then
+      git -C "$dir" checkout --quiet --detach FETCH_HEAD
+    else
+      echo "    Could not update. Using the copy that is already there."
+    fi
+  else
+    rm -rf "$dir"
+    step "Download libdispatch ($LIBDISPATCH_GIT_REF)"
+    git clone --quiet --depth 1 --branch "$LIBDISPATCH_GIT_REF" \
+      "$LIBDISPATCH_GIT_URL" "$dir" ||
+      fail "Could not download $LIBDISPATCH_GIT_URL. Check the network, or set LIBDISPATCH_SRC."
+  fi
+  echo "    $LIBDISPATCH_GIT_URL $LIBDISPATCH_GIT_REF at $(git -C "$dir" rev-parse --short HEAD)"
+  LIBDISPATCH_SRC="$dir"
 }
 
 # Configure, build, and install libdispatch. The first run compiles the
@@ -351,7 +385,7 @@ run_example() {
 
 # Build a browser example with the PackageToJS plugin of JavaScriptKit.
 #   $1  the example folder
-#   rest: --serve to also serve the folder on http://localhost:8080 (on this
+#   rest: --serve to also serve the folder on http://127.0.0.1:8080 (on this
 #         machine only), --clean to delete the build folders first
 build_browser_example() {
   local dir="$1"
@@ -374,7 +408,7 @@ build_browser_example() {
   timed build "$SWIFT" package --swift-sdk "$SWIFT_SDK_ID" js --use-cdn
 
   if [ "$serve" = 1 ]; then
-    step "Serve on http://localhost:8080"
+    step "Serve on http://127.0.0.1:8080"
     python3 -m http.server 8080 --bind 127.0.0.1
   fi
 }
@@ -391,7 +425,7 @@ parse_common_args() {
         echo "Usage: $0 [--wasmtime] [--clean]"
         echo "  --wasmtime  also run the example with wasmtime"
         echo "  --clean     delete the shared build folder first"
-        echo "Set LIBDISPATCH_SRC to a libdispatch tree with the WASI port."
+        echo "Set LIBDISPATCH_SRC to use a local libdispatch tree with the WASI port."
         exit 0 ;;
       *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
     esac
