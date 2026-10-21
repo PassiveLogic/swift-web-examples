@@ -73,8 +73,8 @@ WASI gives the program one thread. So libdispatch cannot run work on other threa
   - `dispatch_main()`. A command module calls it, as examples 01 to 05 do.
   - A host turn. A host event loop calls the private SPI `_dispatch_wasi_event_loop_perform()`, as examples 06 and 07 do.
   - A blocking Dispatch wait at top level, for example `dispatch_semaphore_wait` in `main()`. The wait runs other queued work until it can finish. It never runs main-queue work, as on Darwin and Linux.
-- A blocking wait inside a block that Dispatch runs cannot run other work. An indefinite wait there stops the program with a message such as `semaphore wait from within a drained work item`.
-- `dispatch_main()` runs the queued work. When only timers are left, it sleeps until the next timer is due. It never returns. If no work and no timer is left, it stops the program with `dispatch_main(): no runnable work on single-threaded WASI`. So a command module ends with `exit(0)` from its last block.
+- A blocking wait inside a block that Dispatch runs cannot run other work. An indefinite wait there stops the program with a message such as `Deadlock: semaphore wait from a work item`.
+- `dispatch_main()` runs the queued work. When only timers are left, it sleeps until the next timer is due. It never returns. If nothing is left that can make more work, it stops the program with a message that starts with `dispatch_main() with no work`. So a command module ends with `exit(0)` from its last block.
 
 ## WasmKit versions
 
