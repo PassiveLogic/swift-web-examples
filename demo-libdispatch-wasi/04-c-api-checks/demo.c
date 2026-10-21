@@ -348,7 +348,7 @@ static void check_data(void)
 // 12. dispatch_main() runs the main queue. It also sleeps until the next
 //     timer is due. It never returns. So the last main-queue block prints the
 //     summary and calls exit(). If nothing is left to run, dispatch_main()
-//     stops the program with "no runnable work on single-threaded WASI".
+//     stops the program with "dispatch_main() with no work ...".
 static int64_t main_start_ms;
 
 static void finish(void *context)
