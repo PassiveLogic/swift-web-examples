@@ -1,10 +1,15 @@
 # Shared settings and helpers for the libdispatch on WASI examples.
 # Each example script sources this file. It does not run anything itself.
 #
-# Environment variables (all optional except LIBDISPATCH_SRC):
+# Environment variables (all optional):
 #
-#   LIBDISPATCH_SRC  A libdispatch source tree with the cooperative WASI
-#                    backend (src/event/event_wasi.c).
+#   LIBDISPATCH_SRC  A local libdispatch source tree with the cooperative WASI
+#                    backend (src/event/event_wasi.c). If you do not set it,
+#                    the scripts download LIBDISPATCH_GIT_REF of
+#                    LIBDISPATCH_GIT_URL into .build/libdispatch-src, and
+#                    update that copy on each run.
+#   LIBDISPATCH_GIT_URL  The libdispatch repository to download.
+#   LIBDISPATCH_GIT_REF  The branch or tag to download.
 #   SWIFT_TOOLCHAIN  Host Swift toolchain (.xctoolchain).
 #   WASM_SDK         The wasm32-unknown-wasip1 folder of a Swift SDK for WASI.
 #   WASMKIT          The WasmKit command line tool. If you do not set it, the
@@ -15,8 +20,18 @@ SWIFT_TOOLCHAIN="${SWIFT_TOOLCHAIN:-$HOME/Library/Developer/Toolchains/swift-6.3
 SWIFT_SDK_ID="${SWIFT_SDK_ID:-swift-6.3.1-RELEASE_wasm}"
 WASM_SDK="${WASM_SDK:-$HOME/Library/org.swift.swiftpm/swift-sdks/$SWIFT_SDK_ID.artifactbundle/$SWIFT_SDK_ID/wasm32-unknown-wasip1}"
 LIBDISPATCH_SRC="${LIBDISPATCH_SRC:-}"
+# Upstream libdispatch does not have the WASI port yet. Until it does, the
+# default is the branch that holds the full port, with the Swift overlay.
+LIBDISPATCH_GIT_URL="${LIBDISPATCH_GIT_URL:-https://github.com/PassiveLogic/swift-corelibs-libdispatch.git}"
+LIBDISPATCH_GIT_REF="${LIBDISPATCH_GIT_REF:-feat/scottm/libDispatchWasmV2}"
 WASMKIT="${WASMKIT:-}"
 WASMTIME="${WASMTIME:-$(command -v wasmtime || echo wasmtime)}"
+
+# The defaults above are Swift 6.3.1. These are the official downloads for it,
+# for the install hints. The Swift SDK must match the toolchain exactly.
+DEFAULT_SWIFT_TOOLCHAIN="$HOME/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain"
+WASM_SDK_URL="https://download.swift.org/swift-6.3.1-release/wasm-sdk/swift-6.3.1-RELEASE/swift-6.3.1-RELEASE_wasm.artifactbundle.tar.gz"
+WASM_SDK_CHECKSUM="bd47baa20771f366d8beed7970afaa30742b2210097afd15f85427226d8f4cf2"
 
 # The examples folder (the folder that holds this file) and its build folder.
 EXAMPLES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -96,16 +111,44 @@ need_path() {
        $hint"
 }
 
-# Check that CMake is 3.31 or newer. That is the first CMake that knows WASI.
-check_cmake_version() {
+# Print the CMake version. Return 1 if it is older than 3.31, the first CMake
+# that knows WASI.
+cmake_version_ok() {
   local version major minor
   version="$(cmake --version | head -n 1 | awk '{print $3}')"
+  echo "$version"
   major="${version%%.*}"
   minor="${version#*.}"
   minor="${minor%%.*}"
-  if [ "$major" -lt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -lt 31 ]; }; then
-    fail "CMake 3.31 or newer is necessary. Found $version."
+  [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 31 ]; }
+}
+
+# The prerequisites that are missing, as "what|install command" entries.
+MISSING=()
+
+# Note a missing prerequisite and the command that installs it.
+#   $1  what is missing
+#   $2  the install command
+missing() {
+  MISSING+=("$1|$2")
+}
+
+# If a prerequisite is missing, print each one with its install command, then
+# stop. The scripts never install anything themselves.
+report_missing() {
+  [ ${#MISSING[@]} -eq 0 ] && return 0
+  local entry
+  echo >&2
+  echo "ERROR: Install these prerequisites, then run the script again:" >&2
+  for entry in "${MISSING[@]}"; do
+    echo "  - ${entry%%|*}" >&2
+    echo "      ${entry#*|}" >&2
+  done
+  if printf '%s\n' "${MISSING[@]}" | grep -q '|brew ' && ! command -v brew >/dev/null; then
+    echo "  The brew commands need Homebrew. See https://brew.sh" >&2
   fi
+  echo "  README.md lists every prerequisite, under Prerequisites." >&2
+  exit 1
 }
 
 # Print the version of a WasmKit command, or nothing if it does not run.
@@ -167,7 +210,9 @@ find_wasmkit() {
         return
       fi
     done
-    [ -n "$first" ] || fail "WasmKit not found. Install a Swift toolchain that has it, or set WASMKIT."
+    [ -n "$first" ] || fail "WasmKit not found. Install it with one of these, or set WASMKIT:
+         swiftly install main-snapshot   (WasmKit 0.3.0 or newer)
+         swiftly install 6.3.1           (WasmKit 0.1.6, slower sleeps)"
     WASMKIT="$first"
     WASMKIT_VERSION="$first_version"
   fi
@@ -245,16 +290,45 @@ build_libdispatch() {
 # Check the tools and folders that every example needs.
 #   $1  "swift" when the example needs the Swift overlay, else "c"
 check_prerequisites() {
-  local kind="$1"
+  local kind="$1" version
   step "Check prerequisites"
-  command -v cmake >/dev/null || fail "cmake is not on PATH. Install CMake 3.31 or newer."
-  check_cmake_version
-  command -v ninja >/dev/null || fail "ninja is not on PATH. Try: brew install ninja"
-  need_path "$CLANG" "Install a Swift toolchain, or set SWIFT_TOOLCHAIN to one."
-  need_path "$SYSROOT" "Install the Swift SDK for WASI, or set WASM_SDK to its wasm32-unknown-wasip1 folder."
-  need_path "$BUILTINS" "WASM_SDK does not hold the compiler-rt builtins for wasip1."
-  [ -n "$LIBDISPATCH_SRC" ] || fail "Set LIBDISPATCH_SRC to a libdispatch source tree with the
-       cooperative WASI backend (src/event/event_wasi.c)."
+  MISSING=()
+  if ! command -v cmake >/dev/null; then
+    missing "CMake 3.31 or newer" "brew install cmake"
+  elif ! version="$(cmake_version_ok)"; then
+    missing "CMake 3.31 or newer (found $version)" "brew upgrade cmake"
+  fi
+  command -v ninja >/dev/null || missing "Ninja" "brew install ninja"
+  if [ -z "$LIBDISPATCH_SRC" ] && ! command -v git >/dev/null; then
+    missing "git, to download libdispatch" "xcode-select --install"
+  fi
+  if [ ! -e "$CLANG" ] || { [ "$kind" = swift ] && [ ! -e "$SWIFTC" ]; }; then
+    if [ "$SWIFT_TOOLCHAIN" = "$DEFAULT_SWIFT_TOOLCHAIN" ]; then
+      missing "Swift 6.3.1 toolchain ($SWIFT_TOOLCHAIN)" \
+        "swiftly install 6.3.1   (to get swiftly, see https://www.swift.org/install/macos/)"
+    else
+      missing "Swift toolchain ($SWIFT_TOOLCHAIN)" \
+        "Install that toolchain, or unset SWIFT_TOOLCHAIN to use Swift 6.3.1."
+    fi
+  fi
+  if [ ! -e "$SYSROOT" ] || [ ! -e "$BUILTINS" ] ||
+     { [ "$kind" = swift ] && [ ! -e "$SWIFT_STATIC" ]; }; then
+    if [ "$SWIFT_SDK_ID" = swift-6.3.1-RELEASE_wasm ]; then
+      missing "Swift SDK for WASI ($SWIFT_SDK_ID), which must match the toolchain" \
+        "$SWIFT sdk install $WASM_SDK_URL --checksum $WASM_SDK_CHECKSUM"
+    else
+      missing "Swift SDK for WASI ($WASM_SDK)" \
+        "Install the Swift SDK $SWIFT_SDK_ID that matches SWIFT_TOOLCHAIN exactly."
+    fi
+  fi
+  if [ "${RUN_WASMTIME:-0}" = 1 ] && ! command -v "$WASMTIME" >/dev/null; then
+    missing "wasmtime, for --wasmtime" "brew install wasmtime"
+  fi
+  if [ "${NEED_PYTHON:-0}" = 1 ] && ! command -v python3 >/dev/null; then
+    missing "Python 3, to serve the browser examples" "xcode-select --install"
+  fi
+  report_missing
+  [ -n "$LIBDISPATCH_SRC" ] || fetch_libdispatch
   LIBDISPATCH_SRC="$(absolute_dir "$LIBDISPATCH_SRC")"
   need_path "$LIBDISPATCH_SRC/src/event/event_wasi.c" \
     "LIBDISPATCH_SRC has no cooperative WASI backend (src/event/event_wasi.c)."
@@ -265,6 +339,32 @@ check_prerequisites() {
       fail "LIBDISPATCH_SRC has no Swift overlay support for WASI."
   fi
   mkdir -p "$BUILD_ROOT"
+}
+
+# Download the default libdispatch tree, or update it to the latest commit of
+# LIBDISPATCH_GIT_REF. Then use it as LIBDISPATCH_SRC. If the update fails,
+# for example with no network, use the copy that is already there.
+fetch_libdispatch() {
+  local dir="$BUILD_ROOT/libdispatch-src"
+  command -v git >/dev/null || fail "git is not on PATH. Install it with: xcode-select --install"
+  mkdir -p "$BUILD_ROOT"
+  if [ -d "$dir/.git" ] &&
+     [ "$(git -C "$dir" remote get-url origin 2>/dev/null)" = "$LIBDISPATCH_GIT_URL" ]; then
+    step "Update libdispatch ($LIBDISPATCH_GIT_REF)"
+    if git -C "$dir" fetch --quiet --depth 1 origin "$LIBDISPATCH_GIT_REF"; then
+      git -C "$dir" checkout --quiet --detach FETCH_HEAD
+    else
+      echo "    Could not update. Using the copy that is already there."
+    fi
+  else
+    rm -rf "$dir"
+    step "Download libdispatch ($LIBDISPATCH_GIT_REF)"
+    git clone --quiet --depth 1 --branch "$LIBDISPATCH_GIT_REF" \
+      "$LIBDISPATCH_GIT_URL" "$dir" ||
+      fail "Could not download $LIBDISPATCH_GIT_URL. Check the network, or set LIBDISPATCH_SRC."
+  fi
+  echo "    $LIBDISPATCH_GIT_URL $LIBDISPATCH_GIT_REF at $(git -C "$dir" rev-parse --short HEAD)"
+  LIBDISPATCH_SRC="$dir"
 }
 
 # Configure, build, and install libdispatch. The first run compiles the
@@ -351,7 +451,7 @@ run_example() {
 
 # Build a browser example with the PackageToJS plugin of JavaScriptKit.
 #   $1  the example folder
-#   rest: --serve to also serve the folder on http://localhost:8080 (on this
+#   rest: --serve to also serve the folder on http://127.0.0.1:8080 (on this
 #         machine only), --clean to delete the build folders first
 build_browser_example() {
   local dir="$1"
@@ -359,7 +459,7 @@ build_browser_example() {
   local serve=0 arg
   for arg in "$@"; do
     case "$arg" in
-      --serve) serve=1 ;;
+      --serve) serve=1; NEED_PYTHON=1 ;;
       --clean) rm -rf "$BUILD_ROOT" "$dir/.build" ;;
       *) echo "Usage: $0 [--serve] [--clean]" >&2; exit 2 ;;
     esac
@@ -374,7 +474,7 @@ build_browser_example() {
   timed build "$SWIFT" package --swift-sdk "$SWIFT_SDK_ID" js --use-cdn
 
   if [ "$serve" = 1 ]; then
-    step "Serve on http://localhost:8080"
+    step "Serve on http://127.0.0.1:8080"
     python3 -m http.server 8080 --bind 127.0.0.1
   fi
 }
@@ -391,7 +491,7 @@ parse_common_args() {
         echo "Usage: $0 [--wasmtime] [--clean]"
         echo "  --wasmtime  also run the example with wasmtime"
         echo "  --clean     delete the shared build folder first"
-        echo "Set LIBDISPATCH_SRC to a libdispatch tree with the WASI port."
+        echo "Set LIBDISPATCH_SRC to use a local libdispatch tree with the WASI port."
         exit 0 ;;
       *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
     esac

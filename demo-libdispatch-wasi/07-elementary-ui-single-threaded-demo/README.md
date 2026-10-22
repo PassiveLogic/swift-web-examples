@@ -4,10 +4,10 @@ An all-Swift web app that runs in the browser. It is built with [ElementaryUI](h
 
 ```
 ./build.sh           # build libdispatch with the Swift overlay, then this package
-./build.sh --serve   # also serve the page on http://localhost:8080 (this machine only)
+./build.sh --serve   # also serve the page on http://127.0.0.1:8080 (this machine only)
 ```
 
-Open http://localhost:8080 in a browser.
+Open http://127.0.0.1:8080 in a browser.
 
 ## How to use it
 
