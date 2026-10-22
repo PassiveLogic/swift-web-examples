@@ -24,7 +24,7 @@ args=()
 for arg in "$@"; do
   case "$arg" in
     --no-pause) pause=0 ;;
-    --wasmtime) args+=(--wasmtime) ;;
+    --wasmtime) args+=(--wasmtime); RUN_WASMTIME=1 ;;
     --clean) rm -rf .build 06-browser-host-loop/.build 07-elementary-ui-single-threaded-demo/.build ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; usage >&2; exit 2 ;;
@@ -33,6 +33,8 @@ done
 [ -t 0 ] || pause=0
 
 source ./common.sh
+# The walkthrough serves the browser examples, so it needs Python.
+NEED_PYTHON=$pause
 
 # The examples, in order: folder, kind, and a short description.
 examples=(

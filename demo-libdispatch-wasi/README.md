@@ -14,14 +14,41 @@ These examples use libdispatch (Grand Central Dispatch) on WebAssembly, for the 
 
 ## Prerequisites
 
-- macOS with the Xcode command line tools.
-- A Swift 6.3.1 release toolchain in `~/Library/Developer/Toolchains`.
-- The matching Swift SDK for WASI (`swift-6.3.1-RELEASE_wasm`). Install it with `swift sdk install`.
-- CMake 3.31 or newer. This is the first CMake that knows `CMAKE_SYSTEM_NAME=WASI`.
-- Ninja.
-- Git, and network access on the first run. The scripts download a [libdispatch](https://github.com/swiftlang/swift-corelibs-libdispatch) tree with the WASI port into `.build/libdispatch-src`, and update it on each run. Upstream libdispatch does not have the WASI port yet, so the default is the branch that holds the full port. See `LIBDISPATCH_GIT_URL` and `LIBDISPATCH_GIT_REF` below. To use your own tree, set `LIBDISPATCH_SRC`. It must have the cooperative WASI backend (`src/event/event_wasi.c`), and the Swift examples also need its Swift overlay support for WASI.
-- For examples 01 to 05: WasmKit 0.3.0 or newer. See [WasmKit versions](#wasmkit-versions). wasmtime is optional.
-- For examples 06 and 07: Python 3 for a local web server, and a browser. The first build downloads Swift packages from GitHub, and the page loads a WASI shim from a CDN.
+The scripts check these before they build anything. If one is missing, the script stops and prints the command that installs it. The scripts never install anything themselves.
+
+| Prerequisite | Needed for | Install |
+|---|---|---|
+| macOS | all examples | The scripts use macOS paths. |
+| Xcode command line tools: git and Python 3 | git downloads libdispatch. Python serves the browser examples. | `xcode-select --install` |
+| [Homebrew](https://brew.sh) | the `brew` commands in this table | See https://brew.sh |
+| CMake 3.31 or newer | all examples | `brew install cmake` |
+| Ninja | all examples | `brew install ninja` |
+| Swift 6.3.1 toolchain | all examples | `swiftly install 6.3.1` (see below) |
+| Swift SDK for WASI 6.3.1 | all examples | `swift sdk install` (see below) |
+| WasmKit | examples 01 to 05 | Comes with the Swift toolchain. See [WasmKit versions](#wasmkit-versions). |
+| A browser | examples 06 and 07 | |
+| wasmtime (optional) | `--wasmtime` | `brew install wasmtime` |
+| wasm-opt (optional) | smaller builds of examples 06 and 07 | `brew install binaryen` |
+
+Install the Swift toolchain with [swiftly](https://www.swift.org/install/macos/). It puts the toolchain in `~/Library/Developer/Toolchains`, where the scripts look for it:
+
+```
+swiftly install 6.3.1
+```
+
+Then install the Swift SDK for WASI with that toolchain. The SDK must match the toolchain version exactly. The command and checksum are from swift.org:
+
+```
+~/Library/Developer/Toolchains/swift-6.3.1-RELEASE.xctoolchain/usr/bin/swift sdk install \
+  https://download.swift.org/swift-6.3.1-release/wasm-sdk/swift-6.3.1-RELEASE/swift-6.3.1-RELEASE_wasm.artifactbundle.tar.gz \
+  --checksum bd47baa20771f366d8beed7970afaa30742b2210097afd15f85427226d8f4cf2
+```
+
+The examples use Swift 6.3.1, not the latest Swift release, because example 07 uses ElementaryUI 0.7.0. That is the last ElementaryUI release for Swift 6.3.
+
+You do not need Node.js or npm. The browser examples build with the PackageToJS plugin of JavaScriptKit, which does not use them.
+
+The first run needs network access. It downloads libdispatch into `.build/libdispatch-src`, and later runs update it. Upstream libdispatch does not have the WASI port yet, so the default is the branch that holds the full port. To use your own libdispatch tree, set `LIBDISPATCH_SRC` (see the table below). The browser examples also download their Swift packages, and the pages load a WASI shim from a CDN.
 
 ## Getting started
 

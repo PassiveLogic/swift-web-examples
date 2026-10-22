@@ -24,4 +24,6 @@ See [here](./demo-tokamak-web-app/README.md) for details.
 
 Seven examples of libdispatch (Grand Central Dispatch) on WebAssembly, from a short C program to an all-Swift web app. The command line examples run with WasmKit or wasmtime. The browser examples drive Dispatch from the browser event loop, and one of them uses ElementaryUI.
 
+To run them, install the [prerequisites](./demo-libdispatch-wasi/README.md#prerequisites): CMake, Ninja, the Swift 6.3.1 toolchain, and its Swift SDK for WASI. Then run `./run-all.sh` in `demo-libdispatch-wasi`. It walks through the examples one at a time.
+
 See [here](./demo-libdispatch-wasi/README.md) for details.
